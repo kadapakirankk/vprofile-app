@@ -1,0 +1,91 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # 1. Sonar Job: Runs ONLY on Pull Requests
+  build-and-sonar:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: SonarQube Scan
+        # Replace with your actual SonarQube / SonarCloud action configuration
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  # 2. Docker Job: Runs ONLY on Push to main, outputs image_tag and ecr_registry
+  docker-build-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.set-outputs.outputs.image_tag }}
+      ecr_registry: ${{ steps.set-outputs.outputs.ecr_registry }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # Change to your AWS Region
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: vprofile-app # Change to your repo name
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+      - name: Set Outputs for Helm Job
+        id: set-outputs
+        run: |
+          echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "ecr_registry=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
+
+  # 3. Helm Job: Runs ONLY on Push to main, depends entirely on Docker job completion
+  update-helm:
+    if: github.event_name == 'push'
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Helm Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.12.0'
+
+      - name: Update Helm Values with New Image Details
+        env:
+          IMAGE_TAG: ${{ needs.docker-build-push.outputs.image_tag }}
+          ECR_REGISTRY: ${{ needs.docker-build-push.outputs.ecr_registry }}
+        run: |
+          echo "Updating Helm charts with Registry: $ECR_REGISTRY and Tag: $IMAGE_TAG"
+          # Example using sed to update values.yaml dynamically:
+          # sed -i "s|repository:.*|repository: $ECR_REGISTRY/vprofile-app|g" values.yaml
+          # sed -i "s|tag:.*|tag: $IMAGE_TAG|g" values.yaml
+          
+          # Add your git commit/push steps here if updating a separate GitOps repo!
