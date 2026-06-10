@@ -42,7 +42,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-2 # Change to your AWS Region
+          aws-region: us-east-1 # Change to your AWS Region
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -55,9 +55,11 @@ jobs:
           ECR_REPOSITORY: vprofile-app # Change to your repo name
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build \
+            -f Docker-files/app/Dockerfile \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
       - name: Set Outputs for Helm Job
         id: set-outputs
         run: |
