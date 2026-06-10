@@ -1,4 +1,3 @@
-```yaml
 name: CI Pipeline
 
 on:
@@ -85,4 +84,3 @@ jobs:
           # sed -i "s|tag:.*|tag: $IMAGE_TAG|g" values.yaml
 
           # Add git commit/push commands here if using a separate GitOps repository.
-```
