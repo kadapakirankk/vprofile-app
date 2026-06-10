@@ -55,7 +55,7 @@ jobs:
           ECR_REPOSITORY: vprofile-app # Change to your repo name
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./path/to/Dockerfile .
+         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Docker-files/app/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
       - name: Set Outputs for Helm Job
