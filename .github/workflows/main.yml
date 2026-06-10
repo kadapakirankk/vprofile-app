@@ -43,7 +43,7 @@ jobs:
       - name: Build and Push Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: vprofile-app
+          ECR_REPOSITORY: vprofile-appimage
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
